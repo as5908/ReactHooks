@@ -16,15 +16,33 @@ const ingredientReducer = (currentIngredients, action) => {
 
       return currentIngredients.filter(ing => ing.id !== action.id);
     default:
-      throw Error('Should not get there');
+      throw Error('Should not get there!');
   }
 };
 
+const httpReducer = (currHttpState, action) => {
+  switch (action.type) {
+    case 'SEND':
+      return { loading: true, error: null };
+    case 'RESPONSE':
+      return { ...currHttpState, loading: false };
+    case 'ERROR':
+      return { loading: false, error: action.errorData };
+    case 'CLEAR':
+      return { ...currHttpState, error: null };
+    default:
+      throw Error('Should not get there!');
+  }
+};
 const Ingredients = () => {
   const [userIngredients, dispatch] = useReducer(ingredientReducer, []);
+  const [httpState, dispatchHttp] = useReducer(httpReducer, {
+    loading: false,
+    error: null
+  });
   // const [userIngredients, setUserIngredients] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState();
+  // const [isLoading, setIsLoading] = useState(false);
+  // const [error, setError] = useState();
 
   // Prevent rerendering of this function using useCallback, this function cause infine loop because
   // it is passed as a dependecy in useEffect
@@ -37,17 +55,17 @@ const Ingredients = () => {
   }, []);
 
   const addIngredientHandler = ingredient => {
-    setIsLoading(true);
+    dispatchHttp({ type: 'SEND' });
     fetch('https://react-hooks-update-a0cdc.firebaseio.com/ingredients.json', {
       method: 'POST',
       body: JSON.stringify(ingredient),
       headers: { 'Content-Type': 'application/json' }
     })
       .then(response => {
-        setIsLoading(false);
         return response.json();
       })
       .then(responseData => {
+        dispatchHttp({ type: 'RESPONSE' });
         console.log('r', responseData.name);
         dispatch({
           type: 'ADD',
@@ -59,20 +77,19 @@ const Ingredients = () => {
         // ]);
       })
       .catch(error => {
-        setError('Something went wrong');
-      })
-      .finally(setIsLoading(false));
+        dispatchHttp({ type: 'ERROR', errorData: error.message });
+      });
   };
 
   const removeIngredientHandler = ingredientId => {
-    setIsLoading(true);
+    dispatchHttp({ type: 'SEND' });
     fetch(
       `https://react-hooks-update-a0cdc.firebaseio.com/ingredients/${ingredientId}.json`,
       {
         method: 'DELETE'
       }
     ).then(response => {
-      setIsLoading(false);
+      dispatchHttp({ type: 'RESPONSE' });
       dispatch({
         type: 'DELETE',
         id: ingredientId
@@ -84,15 +101,18 @@ const Ingredients = () => {
   };
 
   const clearError = () => {
-    setError(null);
+    // dispatchHttp({ type: 'ERROR', errorData: null });
+    dispatchHttp({ type: 'CLEAR', errorData: null });
   };
 
   return (
     <div className="App">
-      {error && <ErrorModal onClose={clearError}>{error}</ErrorModal>}
+      {httpState.error && (
+        <ErrorModal onClose={clearError}>{httpState.error}</ErrorModal>
+      )}
       <IngredientForm
         onAddIngredient={addIngredientHandler}
-        loading={isLoading}
+        loading={httpState.loading}
       />
 
       <section>
